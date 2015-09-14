@@ -181,8 +181,8 @@ JoystickView = Backbone.View.extend({
         var originalWidth = 89;
         var originalHeight = 89;
 
-        var spriteWidth = 150;
-        var spriteHeight = 150;
+        var spriteWidth = 100;
+        var spriteHeight = 100;
         var pixelsLeft = 0; //ofset for sprite on img
         var pixelsTop = 0; //offset for sprite on img
         var coords = this._cartesianToCanvas(this.x, this.y);
