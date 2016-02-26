@@ -21,7 +21,7 @@
 
     <script type="text/javascript">
         $(document).ready(function(){
-            var joystickView = new JoystickView(150, function(callbackView){
+            var joystickView = new JoystickView(180, function(callbackView){
                 $("#joystickContent").append(callbackView.render().el);
                 setTimeout(function(){
                     callbackView.renderSprite();
