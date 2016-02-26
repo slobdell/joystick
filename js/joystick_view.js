@@ -28,9 +28,13 @@ JoystickView = Backbone.View.extend({
     this.canvas = null;
     this.context = null;
     this.radius = (this.squareSize / 2) * 0.5;
+    this._xPercent = 0;
+    this._yPercent = 0;
+    this._lastSentX = 0;
+    this._lastSentY = 0;
+    console.log('radius ', this.radius, ' squareSize ', this.squareSize);
 
     this.finishedLoadCallback = finishedLoadCallback;
-
     this.joyStickLoaded = false;
     this.backgroundLoaded = false;
     this.lastTouch = new Date().getTime();
@@ -46,18 +50,40 @@ JoystickView = Backbone.View.extend({
       self.backgroundLoaded = true;
       self._tryCallback();
     });
+    this._processToSocket();
   },
   _retractJoystickForInactivity: function () {
-    var framesPerSec = 15;
+    var framesPerSec = 30;
     var self = this;
-    this.retract = setTimeout(function () {
-      var currentTime = new Date().getTime();
-      if (!self.isOnMidle || currentTime - self.lastTouch >= SECONDS_INACTIVE * 1000) {
-        self._retractToMiddle();
-        self.renderSprite();
-      }
-      self._retractJoystickForInactivity();
-    }, parseInt(1000 / framesPerSec, 10));
+  // setTimeout(function () {
+  //   console.log('x : ', self.x , ' y ', self.y, ' isMidle ', self.isOnMidle);
+  //   var currentTime = new Date().getTime();
+  //   if ( (currentTime - self.lastTouch >= SECONDS_INACTIVE * 1000)) {
+  //     self._retractToMiddle();
+  //     self.renderSprite();
+  //   }else if (self.isOnMidle) {
+  //   }
+  //   self._retractJoystickForInactivity();
+  // }, parseInt(1000 / framesPerSec, 10));
+  },
+  _processToSocket: function () {
+    var self = this;
+    var frameUpdate = 250;
+    this._loopSocketProcess = setInterval(
+      function () {
+        if (self._xPercent != self._lastSentX || self._yPercent != self._lastSentY) {
+          console.log('will sent do socket x ', self._xPercent, ' y : ', self._yPercent);
+          self._sentToSocket(self._xPercent, self._yPercent, function (err, x, y) {
+            self._lastSentX = x;
+            self._lastSentY = y;
+          });
+        } else {
+          console.log('no new values on x and y');
+        }
+      }, frameUpdate);
+  },
+  _sentToSocket: function (x, y, callback) {
+    callback(null, x, y);
   },
   _tryCallback: function () {
     if (this.backgroundLoaded && this.joyStickLoaded) {
@@ -74,6 +100,7 @@ JoystickView = Backbone.View.extend({
     this.x = 0;
     this.y = 0;
     this.renderSprite();
+    self._retractToMiddle();
     this.isOnMidle = true;
   },
   move: function (evt) {
@@ -90,7 +117,7 @@ JoystickView = Backbone.View.extend({
       var left = 0;
       var fromTop = 0;
       elem = $(this.canvas)[0];
-      while(elem) {
+      while (elem) {
         left = left + parseInt(elem.offsetLeft);
         fromTop = fromTop + parseInt(elem.offsetTop);
         elem = elem.offsetParent;
@@ -113,6 +140,12 @@ JoystickView = Backbone.View.extend({
     if (Math.abs(yPercent) > 1.0) {
       yPercent /= Math.abs(yPercent);
     }
+
+    xPercent = parseFloat(xPercent).toFixed(2);
+    yPercent = parseFloat(yPercent).toFixed(2);
+    this._xPercent = xPercent;
+    this._yPercent = yPercent;
+    // console.log('trigger was changed x ', xPercent, ' y ', yPercent, ' counts ', this.countMoves);
     this.trigger('horizontalMove', xPercent);
     this.trigger('verticalMove', yPercent);
   },
@@ -123,7 +156,6 @@ JoystickView = Backbone.View.extend({
     if (isNaN(y)) {
       y = this.squareSize / 2;
     }
-
     this.x = x;
     this.y = y;
     if (this._valuesExceedRadius(this.x, this.y)) {
@@ -132,6 +164,7 @@ JoystickView = Backbone.View.extend({
     this.renderSprite();
   },
   _retractToMiddle: function () {
+    console.log('_retractToMiddle func ', this.isOnMidle);
     var percentLoss = 0.1;
     var toKeep = 1.0 - percentLoss;
 
@@ -144,9 +177,10 @@ JoystickView = Backbone.View.extend({
     if (this.y != 0) {
       ySign = this.y / Math.abs(this.y);
     }
-
+    this.countMoves = 0;
     this.x = Math.floor(toKeep * Math.abs(this.x)) * xSign;
     this.y = Math.floor(toKeep * Math.abs(this.y)) * ySign;
+    this._triggerChange();
     this.isOnMidle = true;
   },
   _traceNewValues: function () {
